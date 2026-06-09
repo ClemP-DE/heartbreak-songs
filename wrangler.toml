@@ -1,1 +1,12 @@
 
+name = "heartbreak-songs"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+
+[assets]
+directory = "./public"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "heartbreak-db"
+database_id = "d37427f5-92a4-44a7-be61-be00353b1992"
