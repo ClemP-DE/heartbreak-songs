@@ -17,7 +17,7 @@ export default {
 
 async function listSongs(env) {
   const { results } = await env.DB
-    .prepare("SELECT id, name, title, performer, url, comment, created_at FROM songs ORDER BY id DESC")
+    .prepare("SELECT id, name, title, performer, url, info_url, comment, created_at FROM songs ORDER BY id DESC")
     .all();
   return Response.json(results);
 }
@@ -34,18 +34,20 @@ async function addSong(request, env) {
   const title     = (body.title || "").trim();
   const performer = (body.performer || "").trim();
   const link      = (body.url || "").trim();
+  const infoLink  = (body.info_url || "").trim();
   const comment   = (body.comment || "").trim();
 
-  if (!name || !title || !performer) return bad("Name, title, and performer are required.");
+  if (!name || !title || !performer) return bad("Name, title, and artist are required.");
   if (name.length > 60 || title.length > 120 || performer.length > 120)
     return bad("One of the fields is too long.");
-  if (link && !/^https?:\/\/.+/i.test(link)) return bad("Link must start with http:// or https://");
-  if (link.length > 500) return bad("Link is too long.");
+  if (link && !/^https?:\/\/.+/i.test(link)) return bad("Song link must start with http:// or https://");
+  if (infoLink && !/^https?:\/\/.+/i.test(infoLink)) return bad("Info link must start with http:// or https://");
+  if (link.length > 500 || infoLink.length > 500) return bad("A link is too long.");
   if (comment.length > 2000) return bad("Comment is too long.");
 
   await env.DB
-    .prepare("INSERT INTO songs (name, title, performer, url, comment) VALUES (?, ?, ?, ?, ?)")
-    .bind(name, title, performer, link || null, comment || null)
+    .prepare("INSERT INTO songs (name, title, performer, url, info_url, comment) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind(name, title, performer, link || null, infoLink || null, comment || null)
     .run();
 
   return Response.json({ ok: true }, { status: 201 });
