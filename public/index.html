@@ -15,7 +15,7 @@
   html,body{margin:0}
   body{
     background:
-      radial-gradient(1100px 560px at 72% -8%, rgba(226,166,92,.08), transparent 60%),
+      radial-gradient(1100px 560px at 72% -8%, rgba(232,173,98,.10), transparent 60%),
       var(--bg);
     color:var(--paper);
     font-family:"Newsreader",Georgia,serif; font-size:18px; line-height:1.55;
@@ -41,20 +41,23 @@
 
   table.songs{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden}
   table.songs thead th{font-family:"Fraunces";text-align:left;font-size:.74rem;letter-spacing:.12em;text-transform:uppercase;
-    color:var(--muted);padding:13px 16px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
+    color:var(--muted);padding:13px 16px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.05)}
   table.songs td{padding:13px 16px;border-bottom:1px solid var(--line);vertical-align:top}
   tr.srow{cursor:pointer;transition:background .15s}
-  tr.srow:hover{background:rgba(255,255,255,.035)}
+  tr.srow:hover{background:rgba(255,255,255,.06)}
   tr.srow td.t{font-family:"Fraunces";font-weight:500;font-size:1.05rem;color:var(--paper)}
   tr.srow td.a,tr.srow td.w{color:var(--muted)}
   .caret{color:var(--soft);font-size:.78rem;margin-right:9px;display:inline-block;width:.8em}
-  tr.detail>td{background:rgba(0,0,0,.18);padding:0 16px}
+  tr.detail>td{background:rgba(0,0,0,.16);padding:0 16px}
   .detail-inner{padding:14px 0 18px;max-width:64ch}
   .why{white-space:pre-wrap;color:var(--paper);margin:0 0 10px}
   .why.empty{color:var(--soft);font-style:italic}
-  .dlinks{display:flex;gap:20px;flex-wrap:wrap}
+  .dlinks{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:4px}
   .dlinks a{color:var(--amber);text-decoration:none;border-bottom:1px solid var(--amber-dim);font-size:.95rem}
-  .dlinks a:hover{color:#f0bd7a}
+  .dlinks a:hover{color:#f6c987}
+  .editbtn{margin-top:14px;cursor:pointer;background:transparent;color:var(--amber);border:1px solid var(--amber-dim);
+    padding:6px 14px;border-radius:3px;font-family:"Fraunces";font-size:.85rem;transition:background .2s,color .2s}
+  .editbtn:hover{background:var(--amber);color:#1a1410}
   .empty-msg{color:var(--soft);font-style:italic;padding:26px 16px;background:var(--panel);border:1px solid var(--line);border-radius:6px}
 
   form{display:grid;gap:16px;max-width:640px}
@@ -67,11 +70,12 @@
     font-family:"Newsreader",serif;font-size:1.05rem;padding:12px 14px;border-radius:3px;outline:none;
     transition:border-color .2s,box-shadow .2s}
   textarea{resize:vertical;min-height:90px;line-height:1.5}
-  input:focus,textarea:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(226,166,92,.16)}
-  input::placeholder,textarea::placeholder{color:#7a818f}
+  input:focus,textarea:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(232,173,98,.20)}
+  input::placeholder,textarea::placeholder{color:#aeb8cc}
   input.ro{opacity:.7;font-style:italic}
-  .backbtn{background:none;border:none;color:var(--soft);cursor:pointer;font-family:"Newsreader",serif;font-size:1rem;padding:0;margin-bottom:18px}
+  .backbtn{background:none;border:none;color:var(--soft);cursor:pointer;font-family:"Newsreader",serif;font-size:1rem;padding:0;margin-bottom:8px}
   .backbtn:hover{color:var(--paper)}
+  .formmode{font-style:italic;color:var(--amber);margin:0 0 14px;min-height:1em}
   .note{min-height:1.2em;font-style:italic;color:var(--muted);font-size:.95rem;margin:2px 0 0}
 </style>
 
@@ -94,6 +98,7 @@
   <!-- FORM VIEW -->
   <section id="formView" hidden>
     <button class="backbtn" id="backToList">&larr; Back to the list</button>
+    <p class="formmode" id="formMode"></p>
     <form id="f">
       <div>
         <div class="namehead">
@@ -125,8 +130,40 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const safeHref = u => (u && /^https?:\/\//i.test(u)) ? u : null;
 
+let songs = [];
+let editId = null;
+
 function showList(){ $("formView").hidden = true; $("listView").hidden = false; }
-function showForm(){ $("listView").hidden = true; $("formView").hidden = false; $("name").focus(); }
+
+function clearAnon(){ $("anon").checked = false; $("name").readOnly = false; $("name").classList.remove("ro"); }
+
+function showForm(){
+  editId = null;
+  $("f").reset();
+  clearAnon();
+  $("formMode").textContent = "";
+  $("submit").textContent = "Add the song";
+  $("note").textContent = "";
+  $("listView").hidden = true; $("formView").hidden = false;
+  $("name").focus();
+}
+
+function startEdit(i){
+  const e = songs[i];
+  editId = e.id;
+  $("name").value = e.name || "";
+  if((e.name || "").toLowerCase() === "anonymous"){ $("anon").checked = true; $("name").readOnly = true; $("name").classList.add("ro"); }
+  else { clearAnon(); }
+  $("title").value = e.title || "";
+  $("performer").value = e.performer || "";
+  $("url").value = e.url || "";
+  $("info_url").value = e.info_url || "";
+  $("comment").value = e.comment || "";
+  $("formMode").textContent = "Editing this entry";
+  $("submit").textContent = "Save changes";
+  $("note").textContent = "";
+  $("listView").hidden = true; $("formView").hidden = false;
+}
 
 function render(rows){
   $("count").textContent = rows.length
@@ -150,7 +187,10 @@ function render(rows){
         '<td class="w">'+esc(e.name)+'</td>'+
       '</tr>'+
       '<tr class="detail" id="d'+i+'" hidden>'+
-        '<td colspan="3"><div class="detail-inner">'+why+(links.length ? '<div class="dlinks">'+links.join("")+'</div>' : "")+'</div></td>'+
+        '<td colspan="3"><div class="detail-inner">'+why+
+          (links.length ? '<div class="dlinks">'+links.join("")+'</div>' : "")+
+          '<button class="editbtn" data-edit="'+i+'">Edit this entry</button>'+
+        '</div></td>'+
       '</tr>';
   });
   html += '</tbody></table>';
@@ -164,13 +204,17 @@ function render(rows){
       c.textContent = d.hidden ? "\u25b8" : "\u25be";
     });
   });
+  wrap.querySelectorAll(".editbtn").forEach(b => {
+    b.addEventListener("click", ev => { ev.stopPropagation(); startEdit(parseInt(b.getAttribute("data-edit"), 10)); });
+  });
 }
 
 async function load(){
   try{
     const r = await fetch("/api/songs");
     if(!r.ok) throw 0;
-    render(await r.json());
+    songs = await r.json();
+    render(songs);
   }catch{ $("count").textContent = "Couldn't reach the database."; }
 }
 
@@ -179,7 +223,7 @@ $("backToList").addEventListener("click", showList);
 
 $("anon").addEventListener("change", () => {
   if($("anon").checked){ $("name").value = "anonymous"; $("name").readOnly = true; $("name").classList.add("ro"); }
-  else { $("name").value = ""; $("name").readOnly = false; $("name").classList.remove("ro"); $("name").focus(); }
+  else { $("name").value = ""; clearAnon(); $("name").focus(); }
 });
 
 $("f").addEventListener("submit", async ev => {
@@ -189,13 +233,17 @@ $("f").addEventListener("submit", async ev => {
   if(!name || !title || !performer){ $("note").textContent = "Fill in name, title, and artist."; return; }
 
   $("submit").disabled = true; $("note").textContent = "Saving\u2026";
+  const payload = { name, title, performer, url, info_url, comment };
+  if(editId) payload.id = editId;
   try{
     const r = await fetch("/api/songs", {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ name, title, performer, url, info_url, comment })
+      method: editId ? "PUT" : "POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify(payload)
     });
     if(!r.ok){ const e = await r.json().catch(()=>({})); throw new Error(e.error || "save failed"); }
-    $("f").reset(); $("name").readOnly = false; $("name").classList.remove("ro");
+    editId = null;
+    $("f").reset(); clearAnon();
     $("note").textContent = "";
     await load();
     showList();
