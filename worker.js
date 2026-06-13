@@ -8,6 +8,7 @@ export default {
     if (url.pathname === "/api/songs") {
       if (request.method === "GET")  return listSongs(env);
       if (request.method === "POST") return addSong(request, env);
+      if (request.method === "PUT")  return updateSong(request, env);
       return new Response("Method not allowed", { status: 405 });
     }
 
@@ -22,35 +23,57 @@ async function listSongs(env) {
   return Response.json(results);
 }
 
+// shared field reading + validation for add and update
+function readFields(body) {
+  const f = {
+    name:      (body.name || "").trim(),
+    title:     (body.title || "").trim(),
+    performer: (body.performer || "").trim(),
+    link:      (body.url || "").trim(),
+    infoLink:  (body.info_url || "").trim(),
+    comment:   (body.comment || "").trim(),
+  };
+  if (!f.name || !f.title || !f.performer) return { error: "Name, title, and artist are required." };
+  if (f.name.length > 60 || f.title.length > 120 || f.performer.length > 120)
+    return { error: "One of the fields is too long." };
+  if (f.link && !/^https?:\/\/.+/i.test(f.link)) return { error: "Song link must start with http:// or https://" };
+  if (f.infoLink && !/^https?:\/\/.+/i.test(f.infoLink)) return { error: "Info link must start with http:// or https://" };
+  if (f.link.length > 500 || f.infoLink.length > 500) return { error: "A link is too long." };
+  if (f.comment.length > 2000) return { error: "Comment is too long." };
+  return { fields: f };
+}
+
 async function addSong(request, env) {
   let body;
-  try {
-    body = await request.json();
-  } catch {
-    return bad("Invalid JSON");
-  }
+  try { body = await request.json(); } catch { return bad("Invalid JSON"); }
 
-  const name      = (body.name || "").trim();
-  const title     = (body.title || "").trim();
-  const performer = (body.performer || "").trim();
-  const link      = (body.url || "").trim();
-  const infoLink  = (body.info_url || "").trim();
-  const comment   = (body.comment || "").trim();
-
-  if (!name || !title || !performer) return bad("Name, title, and artist are required.");
-  if (name.length > 60 || title.length > 120 || performer.length > 120)
-    return bad("One of the fields is too long.");
-  if (link && !/^https?:\/\/.+/i.test(link)) return bad("Song link must start with http:// or https://");
-  if (infoLink && !/^https?:\/\/.+/i.test(infoLink)) return bad("Info link must start with http:// or https://");
-  if (link.length > 500 || infoLink.length > 500) return bad("A link is too long.");
-  if (comment.length > 2000) return bad("Comment is too long.");
+  const { fields: f, error } = readFields(body);
+  if (error) return bad(error);
 
   await env.DB
     .prepare("INSERT INTO songs (name, title, performer, url, info_url, comment) VALUES (?, ?, ?, ?, ?, ?)")
-    .bind(name, title, performer, link || null, infoLink || null, comment || null)
+    .bind(f.name, f.title, f.performer, f.link || null, f.infoLink || null, f.comment || null)
     .run();
 
   return Response.json({ ok: true }, { status: 201 });
+}
+
+async function updateSong(request, env) {
+  let body;
+  try { body = await request.json(); } catch { return bad("Invalid JSON"); }
+
+  const id = parseInt(body.id, 10);
+  if (!id) return bad("Missing or invalid id.");
+
+  const { fields: f, error } = readFields(body);
+  if (error) return bad(error);
+
+  await env.DB
+    .prepare("UPDATE songs SET name=?, title=?, performer=?, url=?, info_url=?, comment=? WHERE id=?")
+    .bind(f.name, f.title, f.performer, f.link || null, f.infoLink || null, f.comment || null, id)
+    .run();
+
+  return Response.json({ ok: true });
 }
 
 const bad = (message) => Response.json({ error: message }, { status: 400 });
